@@ -27,8 +27,6 @@ database= Database()
 
 @app.route('/ping', methods=['GET'])
 def ping():
-    stock = Stocks()
-    print(stock.get('BHG'))
     return {'status':'running'}
 
 
