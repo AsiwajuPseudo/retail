@@ -33,7 +33,7 @@ class Utils:
 		df_clean = df.dropna()
 		if df_clean.empty:
 			return []
-		ohlc = df_clean['price'].resample(f'{interval_minutes}T').ohlc()
+		ohlc = df_clean['price'].resample(f'{interval_minutes}min').ohlc()
 		ohlc.dropna(inplace=True)
 		ohlc.reset_index(inplace=True)
 		ohlc_data = []
