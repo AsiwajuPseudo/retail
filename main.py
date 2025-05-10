@@ -235,7 +235,6 @@ def admin_deposit():
     if check==False:
         return {'status':'Unauthorised access'}
     database.deposit_fiat(user_id, amount)
-    database.deposit_tether(user_id, amount)
     return {'status':'success'}
 
 @app.route('/finish_deposit', methods=['GET'])
