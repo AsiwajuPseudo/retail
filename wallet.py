@@ -16,9 +16,9 @@ class Wallet:
         self.account_key = ky
 
         networks=[
-            #{'network':'Abitrum One','rpc':'https://arb-mainnet.g.alchemy.com/v2/55OWPHL5xT8wdS_8gqR3Xn3kBoYhNZnq','contract':'0xaf88d065e77c8cC2239327C5EDb3A432268e5831','gas_price':4000},
+            {'network':'Abitrum One','rpc':'https://arb-mainnet.g.alchemy.com/v2/55OWPHL5xT8wdS_8gqR3Xn3kBoYhNZnq','contract':'0xaf88d065e77c8cC2239327C5EDb3A432268e5831','gas_price':4000},
             #{'network':'Polygon','rpc':'https://polygon-mainnet.g.alchemy.com/v2/55OWPHL5xT8wdS_8gqR3Xn3kBoYhNZnq','contract':'0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359','gas_price':0.7},
-            {'network':'Polygon Amoy','rpc':'https://polygon-amoy.g.alchemy.com/v2/55OWPHL5xT8wdS_8gqR3Xn3kBoYhNZnq','contract':'0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582','gas_price':0.7}
+            #{'network':'Polygon Amoy','rpc':'https://polygon-amoy.g.alchemy.com/v2/55OWPHL5xT8wdS_8gqR3Xn3kBoYhNZnq','contract':'0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582','gas_price':0.7}
         ]
 
         erc20_abi = '../TetherToken.json'
