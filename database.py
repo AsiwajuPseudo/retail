@@ -218,11 +218,64 @@ class Database:
     # =====================
     # Orders
     # =====================
-    def place_order(self, account_id, order_type, amount, price=None, is_market_order="limit"):
+    def place_order(self, account_id, order_type, amount, price=None, is_market_order="market"):
         if order_type == 'buy':
-            return self._place_buy_order(account_id, amount, price, is_market_order)
+            if is_market_order=='limit':
+                return self._place_buy_order(account_id, amount, price, is_market_order)
+            else:
+                return self.market_buy_order(account_id, amount)
         elif order_type == 'sell':
-            return self._place_sell_order(account_id, amount, price, is_market_order)
+            if is_market_order=='limit':
+                return self._place_sell_order(account_id, amount, price, is_market_order)
+            else:
+                return self.market_sell_order(account_id, amount)
+
+    def market_buy_order(self, account_id, amount):
+        c = self.conn.cursor()
+
+        # Match with existing SELL orders
+        c.execute('''SELECT * FROM orders WHERE type = 'sell' AND status = 'open' ORDER BY price ASC, timestamp ASC''')
+        sell_orders = c.fetchall()
+
+        remaining = amount
+
+        for order in sell_orders:
+            sell_id, seller_id, _, sell_amount, sell_price, _, sell_status, _ = order
+            match_amount = min(remaining, sell_amount)
+            #check balance
+            c.execute('SELECT fiat_balance FROM accounts WHERE id = ?', (account_id,))
+            balance = c.fetchone()[0]
+            total_cost = match_amount * sell_price
+            match_volume=min(total_cost, balance)
+            match_amount= match_volume / sell_price
+
+            # Update buyer
+            self.conn.execute('''
+                UPDATE accounts SET fiat_balance = fiat_balance - ?, tether_balance = tether_balance + ?
+                WHERE id = ?
+            ''', (match_amount * sell_price, match_amount * sell_price, account_id))
+
+            # Update seller
+            self.conn.execute('''
+                UPDATE accounts SET fiat_balance = fiat_balance + ?
+                WHERE id = ?
+            ''', (match_amount * sell_price, seller_id))
+
+            # Update sell order
+            if match_amount == sell_amount:
+                self.conn.execute('UPDATE orders SET status = ? WHERE id = ?', ('filled', sell_id))
+            else:
+                self.conn.execute('''
+                    UPDATE orders SET amount = amount - ? WHERE id = ?
+                ''', (match_amount, sell_id))
+
+            remaining -= match_amount
+
+            if remaining == 0:
+                break
+
+        self.conn.commit()
+        return {'status': 'success'}
 
     def _place_buy_order(self, account_id, amount, price, is_market_order):
         c = self.conn.cursor()
@@ -287,14 +340,62 @@ class Database:
         self.conn.commit()
         return {'status': 'success'}
 
+    def market_sell_order(self, account_id, amount):
+        c = self.conn.cursor()
+
+        # Match with existing BUY orders
+        c.execute('''SELECT * FROM orders WHERE type = 'buy' AND status = 'open' ORDER BY price DESC, timestamp ASC''')
+        buy_orders = c.fetchall()
+
+        remaining = amount
+
+        for order in buy_orders:
+            buy_id, buyer_id, _, buy_amount, buy_price, _, buy_status, _ = order
+            match_amount = min(remaining, buy_amount)
+            #check balance
+            c.execute('SELECT tether_balance FROM accounts WHERE id = ?', (account_id,))
+            balance = c.fetchone()[0]
+            total_cost = match_amount * buy_price
+            match_volume=min(total_cost, balance)
+            match_amount= match_volume / buy_price
+
+            # Update seller
+            self.conn.execute('''
+                UPDATE accounts SET fiat_balance = fiat_balance + ?, tether_balance = tether_balance - ?
+                WHERE id = ?
+            ''', (match_amount * buy_price, match_amount * buy_price, account_id))
+
+            # Update buyer
+            self.conn.execute('''
+                UPDATE accounts SET tether_balance = tether_balance + ?
+                WHERE id = ?
+            ''', (match_amount * buy_price, buyer_id))
+
+            # Update buy order
+            if match_amount == buy_amount:
+                self.conn.execute('UPDATE orders SET status = ? WHERE id = ?', ('filled', buy_id))
+            else:
+                self.conn.execute('''
+                    UPDATE orders SET amount = amount - ? WHERE id = ?
+                ''', (match_amount, buy_id))
+
+            remaining -= match_amount
+
+            if remaining == 0:
+                break
+
+        self.conn.commit()
+        return {'status': 'success'}
+
     def _place_sell_order(self, account_id, amount, price, is_market_order):
         c = self.conn.cursor()
 
         # Get user's tether balance
         c.execute('SELECT tether_balance FROM accounts WHERE id = ?', (account_id,))
         balance = c.fetchone()[0]
+        total_cost=amount * price
 
-        if balance < amount:
+        if balance < total_cost:
             return {'status': 'Insufficient crypto balance'}
 
         # Match with existing BUY orders at or above price
