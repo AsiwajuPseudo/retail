@@ -376,6 +376,11 @@ def place_order(decoded_token):
     ticker= data['ticker']
     is_market_order = data.get("is_market_order")
 
+    if is_market_order=='limit' and price <= 0:
+        return {'status':'Invalid price for this order type'}
+    elif amount <=0 :
+        return {'status':'Invalid amount'}
+
     market_maker=database.is_market_maker(user_id)
     total_placed=amount*price
     #add collective orders
