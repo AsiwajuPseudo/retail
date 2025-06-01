@@ -498,7 +498,8 @@ def tether_data(ticker):
 #=====================
 
 @app.route('/upload', methods=['POST'])
-def upload_id():
+@auth.jwt_required()
+def upload_id(decoded_token):
     data = request.json
     id_file = data['id_file']
     selfie = data['selfie']
