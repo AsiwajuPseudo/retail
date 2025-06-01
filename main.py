@@ -500,7 +500,7 @@ def tether_data(ticker):
 @app.route('/upload', methods=['POST'])
 def upload_id():
     if 'file' not in request.files or 'selfie' not in request.files:
-        return jsonify({'status': False, 'error': 'ID photo or selfie missing'})
+        return jsonify({'status': 'Files are missing'})
 
     file = request.files['file']
     selfie = request.files['selfie']
@@ -508,7 +508,7 @@ def upload_id():
     user_id = request.form.get('user_id')
 
     if file.filename == '' or selfie.filename == '':
-        return jsonify({'status': False, 'error': 'ID photo or selfie not selected'})
+        return jsonify({'status': 'ID photo or selfie not selected'})
 
     profile = database.account(user_id)
     if not profile:
