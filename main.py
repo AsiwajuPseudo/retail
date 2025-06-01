@@ -507,7 +507,6 @@ def upload_id(decoded_token):
     user_id = data.get('user_id')
 
     profile = database.account(user_id)
-    print(profile)
     if not profile:
         return {'status': 'Invalid user'}
 
