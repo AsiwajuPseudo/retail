@@ -412,7 +412,7 @@ def place_order(decoded_token):
     for n in past_orders:
         total_placed=total_placed+(n[4]*n[3])
     #check limit
-    if not market_maker and total_placed > 3:
+    if not market_maker and total_placed > 1000:
         return {'status':'Total order volume reached, your total orders can not be more than $500 in total.'}
 
     order = database.place_order(user_id, order_type, amount, price, is_market_order)
