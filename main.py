@@ -499,40 +499,24 @@ def tether_data(ticker):
 
 @app.route('/upload', methods=['POST'])
 def upload_id():
-    if 'file' not in request.files or 'selfie' not in request.files:
-        return jsonify({'status': 'Files are missing'})
-
-    file = request.files['file']
-    selfie = request.files['selfie']
-    national_id = request.form.get('national_id', '')
-    user_id = request.form.get('user_id')
-
-    if file.filename == '' or selfie.filename == '':
-        return jsonify({'status': 'ID photo or selfie not selected'})
+    data = request.json
+    id_file = data['id_file']
+    selfie = data['selfie']
+    national_id = data.get('national_id')
+    user_id = data.get('user_id')
 
     profile = database.account(user_id)
+    print(profile)
     if not profile:
-        return {'status': 'Invalid user ID'}
+        return {'status': 'Invalid user'}
 
     name = profile[0]
     surname = profile[1]
-
-    if Utils.allowed_file(file.filename) and Utils.allowed_file(selfie.filename):
-        new_id = str(uuid.uuid4())
-        id_filename = new_id + '_id_' + secure_filename(file.filename)
-        selfie_filename = new_id + '_selfie_' + secure_filename(selfie.filename)
-
-        file.save(os.path.join('../verify', id_filename))
-        selfie.save(os.path.join('../verify', selfie_filename))
-
-        # Save both files in DB
-        add = verify.start(user_id, name, surname, national_id, id_filename, selfie_filename)
-        if add:
-            return {'status': 'success'}
-        else:
-            return {'status': 'Verification files already exist, wait for response first.'}
+    add = verify.start(user_id, name, surname, national_id, id_file, selfie)
+    if add:
+        return {'status': 'success'}
     else:
-        return {'status': 'Unsupported file type'}
+        return {'status': 'Verification files already exist, wait for response first.'}
 
 @app.route('/all_verifications/<user_id>', methods=['GET'])
 def all_verifications(user_id):
