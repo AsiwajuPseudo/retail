@@ -1,12 +1,13 @@
-# main.py
+from flask import Flask, jsonify, request, send_from_directory
 from web3.middleware import ExtraDataToPOAMiddleware
 from werkzeug.exceptions import BadRequest
-from flask import Flask, jsonify, request
+from werkzeug.utils import secure_filename
 from eth_account import Account
 from datetime import datetime
 from flask_cors import CORS
 from web3 import Web3
 import requests
+import uuid
 import os
 
 from auth import auth
@@ -16,6 +17,7 @@ from wallet import Wallet
 from market import Market
 from payment import Payment
 from database import Database
+from verification import Verification
 
 app = Flask(__name__)
 CORS(app)
@@ -24,6 +26,7 @@ admin=Admin()
 wallet=Wallet()
 market=Market()
 database= Database()
+verify= Verification()
 
 @app.route('/ping', methods=['GET'])
 def ping():
@@ -116,9 +119,26 @@ def change_password(decoded_token):
 def verification():
     data = request.json
     check=admin.check(data.get("admin_id"))
+    result=data.get('result')
     if check==True:
-        up = database.verify(data.get("user_id"))
-        return up
+        if result=='success':
+            up = database.verify(data.get("user_id"))
+            verify.finish(data.get("user_id"))
+            return up
+        else:
+            deli=verify.delete_verification_data(data.get("user_id"))
+            return deli
+    else:
+        return {'status':'Unauthorised access'}
+
+
+@app.route("/delete_verification", methods=["POST"])
+def delete_verification():
+    data = request.json
+    check=admin.check(data.get("admin_id"))
+    if check==True:
+        deli=verify.delete_verification_data(data.get("user_id"))
+        return deli
     else:
         return {'status':'Unauthorised access'}
 
@@ -163,7 +183,7 @@ def all_users(user_id):
     check=admin.check(user_id)
     if check==True:
         a=database.user_accounts()
-        return [{ 'id':u[0], 'name':u[1], 'surname':u[2], 'email':u[4], 'fiat': u[10], 'tether': u[11]} for u in a ]
+        return [{ 'id':u[0], 'name':u[1], 'surname':u[2], 'email':u[4], 'fiat': u[10], 'tether': u[11], 'verified':u[9]} for u in a ]
     else:
         return []
 
@@ -392,7 +412,7 @@ def place_order(decoded_token):
     for n in past_orders:
         total_placed=total_placed+(n[4]*n[3])
     #check limit
-    if not market_maker and total_placed > 500:
+    if not market_maker and total_placed > 3:
         return {'status':'Total order volume reached, your total orders can not be more than $500 in total.'}
 
     order = database.place_order(user_id, order_type, amount, price, is_market_order)
@@ -469,6 +489,63 @@ def tether_market(ticker):
 @app.route('/tether_data/<ticker>', methods=['GET'])
 def tether_data(ticker):
     return {'ticker':ticker,'name':'USD Tether'}
+
+
+
+
+#=====================
+# Verification
+#=====================
+
+@app.route('/upload', methods=['POST'])
+def upload_id():
+    if 'file' not in request.files or 'selfie' not in request.files:
+        return jsonify({'status': False, 'error': 'ID photo or selfie missing'})
+
+    file = request.files['file']
+    selfie = request.files['selfie']
+    national_id = request.form.get('national_id', '')
+    user_id = request.form.get('user_id')
+
+    if file.filename == '' or selfie.filename == '':
+        return jsonify({'status': False, 'error': 'ID photo or selfie not selected'})
+
+    profile = database.account(user_id)
+    if not profile:
+        return {'status': 'Invalid user ID'}
+
+    name = profile[0]
+    surname = profile[1]
+
+    if Utils.allowed_file(file.filename) and Utils.allowed_file(selfie.filename):
+        new_id = str(uuid.uuid4())
+        id_filename = new_id + '_id_' + secure_filename(file.filename)
+        selfie_filename = new_id + '_selfie_' + secure_filename(selfie.filename)
+
+        file.save(os.path.join('../verify', id_filename))
+        selfie.save(os.path.join('../verify', selfie_filename))
+
+        # Save both files in DB
+        add = verify.start(user_id, name, surname, national_id, id_filename, selfie_filename)
+        if add:
+            return {'status': 'success'}
+        else:
+            return {'status': 'Verification files already exist, wait for response first.'}
+    else:
+        return {'status': 'Unsupported file type'}
+
+@app.route('/all_verifications/<user_id>', methods=['GET'])
+def all_verifications(user_id):
+    check=admin.check(user_id)
+    if check==True:
+        a=verify.all()
+        return [{'id':i[0],'name':i[1],'surname':i[2], 'national_id':i[3], 'id_file':i[4],'selfie':i[5]} for i in a]
+    else:
+        return []
+
+@app.route('/view/<filename>')
+def view_id(filename):
+    return send_from_directory('../verify', filename)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0',port='8080')
