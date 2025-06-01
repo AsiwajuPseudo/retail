@@ -11,6 +11,11 @@ import re
 
 class Utils:
 	@staticmethod
+	def allowed_file(filename):
+		ALLOWED_EXTENSIONS = {'png', 'PNG', 'jpg', 'JPEG', 'JPG', 'jpeg'}
+		return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+	@staticmethod
 	def group_orderbook_levels(levels, step):
 	    grouped = defaultdict(float)  # {price_level: total_volume}
 	    
