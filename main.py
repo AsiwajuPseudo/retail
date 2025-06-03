@@ -18,6 +18,7 @@ from market import Market
 from payment import Payment
 from database import Database
 from verification import Verification
+from notifications import Notifications
 
 app = Flask(__name__)
 CORS(app)
@@ -27,6 +28,7 @@ wallet=Wallet()
 market=Market()
 database= Database()
 verify= Verification()
+notify= Notifications()
 
 @app.route('/ping', methods=['GET'])
 def ping():
@@ -187,6 +189,58 @@ def all_users(user_id):
     else:
         return []
 
+@app.route("/all_noti/<user_id>", methods=["GET"])
+def all_notifications(user_id):
+    if admin.check(user_id):
+        raw_notifications = notify.admin_noti()
+        noti_dict = {}
+        viewed_counts = {}
+        for noti in raw_notifications:
+            noti_id, stamp, content, viewed = noti
+            if noti_id not in noti_dict:
+                noti_dict[noti_id] = {'id': noti_id,'stamp': stamp,'content': content,'viewed': viewed}
+
+            # Count the number of times viewed is 'true'
+            if viewed.lower() == 'true':
+                viewed_counts[noti_id] = viewed_counts.get(noti_id, 0) + 1
+
+        # Merge viewed_true_count into the notification dict
+        result = []
+        for noti_id, data in noti_dict.items():
+            data['viewed_true_count'] = viewed_counts.get(noti_id, 0)
+            result.append(data)
+
+        return result
+    else:
+        return []
+
+@app.route("/add_noti", methods=["POST"])
+def add_notification():
+    data = request.json
+    content=data.get('content')
+    admin_id=data.get('admin_id')
+    check=admin.check(admin_id)
+    if check==True:
+        id_=str(uuid.uuid4())
+        users=database.user_accounts()
+        for i in users:
+            notify.add(id_, i[0], content, 'admin')
+        return {'status':'success'}
+    else:
+        return {'status': 'Unauthorised access'}
+
+@app.route("/delete_noti", methods=["POST"])
+def delete_notification():
+    data = request.json
+    id_=data.get('noti_id')
+    admin_id=data.get('admin_id')
+    check=admin.check(admin_id)
+    if check==True:
+        notify.delete_noti(id_)
+        return {'status':'success'}
+    else:
+        return {'status': 'Unauthorised access'}
+
 # ========================
 # Balance Endpoint
 # ========================
@@ -221,6 +275,12 @@ def available_balances():
 def user_wallet(user_id):
     balance=database.get_balances(user_id)
     return { 'fiat':balance[0], 'tether':balance[1] }
+
+@app.route("/user_noti/<user_id>", methods=["GET"])
+def user_notifications(user_id):
+    n=notify.user_noti(user_id)
+    noti=[i[1] for i in n]
+    return noti
 
 @app.route("/wallet/<user_id>", methods=["GET"])
 def wallet_user(user_id):
