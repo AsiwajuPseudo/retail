@@ -42,7 +42,9 @@ class Database:
             CREATE TABLE IF NOT EXISTS withdrawals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 account_id TEXT,
-                phone TEXT,
+                method TEXT,
+                bank TEXT,
+                account TEXT,
                 amount REAL,
                 processed TEXT DEFAULT 'open',
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -178,13 +180,13 @@ class Database:
         c.execute('SELECT * FROM deposits WHERE account_id=? ORDER BY timestamp DESC',(account_id,))
         return c.fetchall()
 
-    def withdraw_fiat(self, account_id, phone, amount):
+    def withdraw_fiat(self, account_id, method, bank, account, amount, original):
         c = self.conn.cursor()
         c.execute('SELECT fiat_balance FROM accounts WHERE id = ?', (account_id,))
         balance = c.fetchone()[0]
-        if balance >= amount:
-            self.conn.execute('INSERT INTO withdrawals (account_id, phone, amount) VALUES (?, ?, ?)', (account_id, phone, amount))
-            self.conn.execute('UPDATE accounts SET fiat_balance = fiat_balance - ? WHERE id = ?', (amount, account_id))
+        if balance >= original:
+            self.conn.execute('INSERT INTO withdrawals (account_id, method, bank, account, amount) VALUES (?, ?, ?, ?, ?)', (account_id, method, bank, account, amount))
+            self.conn.execute('UPDATE accounts SET fiat_balance = fiat_balance - ? WHERE id = ?', (original, account_id))
             self.conn.commit()
             return True
         return False

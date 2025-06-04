@@ -287,7 +287,7 @@ def wallet_user(user_id):
     dep=database.get_user_deposits(user_id)
     wit=database.get_user_withdrawals(user_id)
     deposits=[{'amount':row[2],'status':'closed','date':row[3],'type':'deposit'} for row in dep]
-    withdrawls=[{'amount':row[3],'status':row[4],'date':row[5], 'type':'withdraw'} for row in wit]
+    withdrawls=[{'amount':row[5],'status':row[6],'date':row[7], 'type':'withdraw'} for row in wit]
     deposits.extend(withdrawls)
     return deposits
 
@@ -340,8 +340,15 @@ def withdraw(decoded_token):
     data = request.json
     user_id = data.get("user_id")
     amount = float(data.get("amount"))
-    phone=data.get('phone')
-    success = database.withdraw_fiat(user_id, phone, amount)
+    account=data.get('account')
+    bank=data.get('bank')
+    method=data.get('method')
+    #take withdrawal charges
+    if method=='bank':
+        new_amount=amount*0.965
+    else:
+        new_amount=amount*0.955
+    success = database.withdraw_fiat(user_id, method, bank, account, new_amount, amount)
     if success:
         return jsonify({"status": "success"}), 200
     else:
@@ -353,8 +360,8 @@ def withdrawals(user_id):
     check=admin.check(user_id)
     if check==True:
         w=database.withdrawals()
-        pending= [{'id':i[0], 'user_id':i[1],'amount':i[3],'date':i[5],'phone':i[2]} for i in w if i[4]=='open']
-        closed=[{'id':i[0], 'user_id':i[1],'amount':i[3],'date':i[5],'phone':i[2]} for i in w if i[4]=='closed']
+        pending= [{'id':i[0], 'user_id':i[1], 'method':i[2],'bank':i[3],'amount':i[5],'date':i[7],'account':i[4]} for i in w if i[6]=='open']
+        closed=[{'id':i[0], 'user_id':i[1], 'method':i[2],'bank':i[3],'amount':i[5],'date':i[7],'account':i[4]} for i in w if i[6]=='closed']
         return {'pending':pending,'closed':closed}
     else:
         return {'pending':[],'closed':[]}
