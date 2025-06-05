@@ -371,6 +371,8 @@ def process_withdraw(user_id,id_):
     check=admin.check(user_id)
     if check==True:
         database.withdraw_process(id_)
+        i=str(uuid.uuid4())
+        notify.add(i, id_, 'Your withdrawal request was processed, you should receive your money through the payment option your selected.', 'system')
         return {'status':'success'}
     else:
         return {'status':'Unauthorised access'}
